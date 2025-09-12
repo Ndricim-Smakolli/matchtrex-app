@@ -1,7 +1,39 @@
+# Node modules
 node_modules/
+
+# Environment files
 .env
 .env.local
-temp_CVs/
+.env.production
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+venv/
+env/
+
+# Temporary files
+temp_CVs/
+temp_ssh_key*
+
+# Logs
+*.log
+webhook_logs.txt
+
+# OS
 .DS_Store
+.DS_Store?
+._*
+
+# Credentials
+google_credentials.json
+
+# Build outputs
+frontend/dist/
+backend/build/
+
+# IDE
+.vscode/
+.idea/

@@ -4,7 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MatchTrex is a React-based web application for managing candidate search campaigns. It uses Supabase for backend services and features a master password authentication system.
+MatchTrex is a full-stack application for automated candidate sourcing and evaluation. The system combines a React frontend for campaign management with a Python backend for AI-powered candidate processing.
+
+### Architecture Overview
+```
+Frontend (React/TS) → Supabase (Database) → VPS Backend (Python/FastAPI)
+     ↓                      ↓                        ↓
+- Campaign UI          - User Auth              - Indeed Scraping  
+- Search Management    - Search Storage         - AI Evaluation
+- Results Display      - Master Auth            - Email Results
+```
 
 ## Development Commands
 
@@ -14,7 +23,7 @@ MatchTrex is a React-based web application for managing candidate search campaig
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (builds and serves production version)
 npm run dev
 
 # Build for production
@@ -27,14 +36,37 @@ npm run lint
 npm run preview
 ```
 
+### Backend Development (run from `/backend` directory)
+
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your API keys and configuration
+
+# Run development server
+python mvp.py --server
+
+# Run direct pipeline (for testing)
+python mvp.py
+```
+
 ## Architecture
 
 ### Tech Stack
-- **Frontend**: React 18 with TypeScript
-- **Styling**: Tailwind CSS
-- **Build Tool**: Vite
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **Icons**: Lucide React
+- **Frontend**: React 18 with TypeScript, Tailwind CSS, Vite
+- **Database**: Supabase (PostgreSQL + Auth)
+- **Backend API**: Python + FastAPI + Uvicorn
+- **AI/ML**: Mistral AI, Selenium WebDriver
+- **Services**: Google Sheets API, 2Captcha, SMTP
+- **Deployment**: Vercel (Frontend), VPS/Hostinger (Backend)
+- **CI/CD**: GitHub Actions
 
 ### Component Structure
 
@@ -91,3 +123,39 @@ The Vite config includes a proxy setup for `/api` requests to `https://api.beyon
 - **Styling**: Utility-first approach with Tailwind CSS
 - **Type Safety**: Full TypeScript coverage with interface definitions
 - **German UI**: All user-facing text is in German
+
+## Backend API Structure
+
+### Core Endpoints
+- `GET /` → Service status and available endpoints
+- `POST /search` → Trigger candidate search with parameters
+- `POST /run-mvp` → Webhook endpoint for pipeline execution
+- `GET /status` → Current pipeline status and recent logs
+- `GET /health` → Health check with script validation
+
+### Pipeline Architecture
+1. **Search Configuration** → Google Sheets or Excel input
+2. **Indeed Scraping** → Selenium-based job search
+3. **CV Download** → Automated resume collection
+4. **AI Evaluation** → Mistral AI candidate scoring
+5. **Results Email** → SMTP delivery to recipients
+
+### Key Dependencies
+- `fastapi` + `uvicorn` → API server
+- `selenium` → Web scraping
+- `requests` → HTTP client
+- `openpyxl` + `gspread` → Data handling
+- `mistral-ai` → AI evaluation
+
+## Deployment Strategy
+
+### Production Setup
+- **Frontend**: Deployed on Vercel with automatic builds from main branch
+- **Backend**: Hosted on VPS (Hostinger) with GitHub Actions deployment
+- **Database**: Supabase cloud instance
+
+### VPS Deployment
+- Backend runs on `https://api.beyondleverage.com:9443`
+- Nginx reverse proxy with SSL
+- GitHub Actions SSH deployment on push to main
+- Process management with nohup/systemd
