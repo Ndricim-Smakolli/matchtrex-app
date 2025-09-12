@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MatchTrex is a full-stack application for automated candidate sourcing and evaluation. The system combines a React frontend for campaign management with a Python backend for AI-powered candidate processing.
+MatchTrex is a comprehensive full-stack monorepo for automated candidate sourcing and evaluation. The system combines a React frontend for campaign management with a Python backend for AI-powered candidate processing, all integrated through GitHub Actions CI/CD.
 
 ### Architecture Overview
 ```
@@ -13,6 +13,18 @@ Frontend (React/TS) → Supabase (Database) → VPS Backend (Python/FastAPI)
 - Campaign UI          - User Auth              - Indeed Scraping  
 - Search Management    - Search Storage         - AI Evaluation
 - Results Display      - Master Auth            - Email Results
+     ↓                                                ↓
+GitHub Actions CI/CD  ←→  Vercel Deployment  ←→  VPS Deployment
+```
+
+### Monorepo Structure
+```
+matchtrex-app/
+├── frontend/           # React TypeScript application
+├── backend/            # Python FastAPI server with AI pipeline
+├── shared/             # Shared TypeScript type definitions
+├── .github/workflows/  # CI/CD automation
+└── CLAUDE.md          # This documentation
 ```
 
 ## Development Commands
@@ -50,11 +62,15 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your API keys and configuration
 
-# Run development server
+# Run development server (port 8000)
 python mvp.py --server
 
 # Run direct pipeline (for testing)
 python mvp.py
+
+# Test API endpoints
+curl http://localhost:8000/health
+curl http://localhost:8000/status
 ```
 
 ## Architecture
@@ -141,11 +157,13 @@ The Vite config includes a proxy setup for `/api` requests to `https://api.beyon
 5. **Results Email** → SMTP delivery to recipients
 
 ### Key Dependencies
-- `fastapi` + `uvicorn` → API server
-- `selenium` → Web scraping
+- `fastapi` + `uvicorn` → API server framework
+- `selenium` → Web scraping automation
 - `requests` → HTTP client
-- `openpyxl` + `gspread` → Data handling
-- `mistral-ai` → AI evaluation
+- `openpyxl` + `gspread` → Excel/Google Sheets handling
+- `2captcha-python` → CAPTCHA solving
+- `beautifulsoup4` → HTML parsing
+- Environment variables for secure API key management
 
 ## Deployment Strategy
 
@@ -154,8 +172,51 @@ The Vite config includes a proxy setup for `/api` requests to `https://api.beyon
 - **Backend**: Hosted on VPS (Hostinger) with GitHub Actions deployment
 - **Database**: Supabase cloud instance
 
-### VPS Deployment
-- Backend runs on `https://api.beyondleverage.com:9443`
-- Nginx reverse proxy with SSL
-- GitHub Actions SSH deployment on push to main
-- Process management with nohup/systemd
+### GitHub Actions CI/CD
+The repository includes automated deployment workflows:
+
+**Backend Deployment** (`.github/workflows/deploy-backend.yml`):
+- Triggers on push to main branch or backend file changes
+- SSH deployment to VPS server
+- Automatic dependency installation and service restart
+- Health check verification post-deployment
+
+**Required GitHub Secrets:**
+- `VPS_SSH_KEY` → Ed25519 private key for server access
+- `VPS_HOST` → Server IP address (147.93.122.141)
+
+### VPS Deployment Details
+- Backend runs on `https://api.beyondleverage.com:9443` (production)
+- Local development runs on `http://localhost:8000`
+- Nginx reverse proxy with SSL certificates
+- Process management with nohup for background execution
+- Automated deployment from GitHub main branch
+
+### Environment Configuration
+Each environment requires specific setup:
+
+**Backend Environment** (`.env` file):
+```bash
+MISTRAL_API_KEY=your_mistral_api_key
+TWOCAPTCHA_KEY=your_twocaptcha_key
+```
+
+**Frontend Environment** (`.env` file):
+```bash
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+## Project Status
+
+✅ **Completed Integration Tasks:**
+- Backend code extracted from VPS and integrated into monorepo
+- Local development environment tested and working
+- GitHub Actions CI/CD pipeline configured
+- Comprehensive documentation and type definitions
+- Security improvements with environment variables
+
+**Next Steps:**
+- Configure GitHub Secrets for automated deployment
+- Test GitHub Actions deployment pipeline
+- Integrate frontend with backend API endpoints
