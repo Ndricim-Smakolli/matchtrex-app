@@ -35,6 +35,7 @@ from email import encoders
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
@@ -985,7 +986,7 @@ def run_pipeline_in_background():
     finally:
         pipeline_running = False
 
-@app.get("/")
+@app.get("/api")
 async def root():
     """Service status endpoint"""
     global pipeline_running
@@ -997,7 +998,7 @@ async def root():
         "endpoints": {
             "search": "POST /search",
             "trigger": "POST /run-mvp",
-            "status": "GET /status", 
+            "status": "GET /status",
             "health": "GET /health"
         }
     }
@@ -1107,6 +1108,14 @@ async def health_check():
         script_path=SCRIPT_PATH,
         script_exists=os.path.exists(SCRIPT_PATH)
     )
+
+# Mount frontend static files (MUST be after ALL API routes)
+frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.exists(frontend_path):
+    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+    logger.info(f"📁 Frontend mounted from: {frontend_path}")
+else:
+    logger.warning(f"⚠️ Frontend dist folder not found at: {frontend_path}")
 
 def main_pipeline(form_params=None):
     """Main MVP pipeline"""
