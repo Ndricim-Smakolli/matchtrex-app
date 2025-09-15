@@ -13,5 +13,6 @@ beautifulsoup4==4.13.5
 
 # Async Job Queue Dependencies
 python-socketio==5.10.0
-websockets==12.0
+websockets==15.0.1
 aiofiles==23.2.1
+supabase==2.18.1

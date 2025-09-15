@@ -49,6 +49,12 @@ from job_models import (
     update_job_status, get_job, job_storage
 )
 
+# Import job worker
+from job_worker import job_worker, start_job_processing, get_worker_status
+
+# Import supabase service
+from supabase_service import supabase_service
+
 # Constants - Load from environment variables
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "your_mistral_api_key")  
 TWOCAPTCHA_KEY = os.getenv("TWOCAPTCHA_KEY", "your_twocaptcha_key")
@@ -120,6 +126,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     pipeline_manager.stop_background_service()
+    job_worker.shutdown()  # Graceful worker shutdown
     logger.info("🛑 MatchTrex Pipeline API shutting down...")
 
 # FastAPI app initialization with lifespan
@@ -1013,10 +1020,18 @@ async def create_job(request: JobCreateRequest):
         logger.info(f"   Keywords: {request.search_keywords}")
         logger.info(f"   Location: {request.location}")
 
+        # Start background processing immediately
+        processing_started = start_job_processing(job_id)
+
+        if processing_started:
+            message = "Job created successfully. Background processing started."
+        else:
+            message = "Job created successfully. Processing will start shortly."
+
         return JobResponse(
             job_id=job_id,
             status=JobStatus.PENDING,
-            message="Job created successfully. Processing will start shortly.",
+            message=message,
             created_at=job_entry["created_at"]
         )
 
@@ -1063,6 +1078,32 @@ async def list_jobs():
         "jobs": jobs
     }
 
+@app.get("/api/worker/status")
+async def get_worker_status_endpoint():
+    """Get background worker status"""
+    return get_worker_status()
+
+@app.get("/api/supabase/test")
+async def test_supabase_connection():
+    """Test Supabase database connection"""
+    return supabase_service.test_connection()
+
+@app.get("/api/jobs/history")
+async def get_job_history(limit: int = 20):
+    """Get job history from Supabase"""
+    if not supabase_service.is_available():
+        return {
+            "message": "Supabase not configured - showing in-memory jobs only",
+            "jobs": []
+        }
+
+    jobs = supabase_service.get_recent_jobs(limit=limit)
+    return {
+        "total_jobs": len(jobs),
+        "jobs": jobs,
+        "source": "supabase"
+    }
+
 # ============================================================================
 # EXISTING API ENDPOINTS (Unchanged)
 # ============================================================================
@@ -1085,7 +1126,10 @@ async def root():
             # New async endpoints
             "jobs_create": "POST /api/jobs",
             "jobs_status": "GET /api/jobs/{job_id}",
-            "jobs_list": "GET /api/jobs"
+            "jobs_list": "GET /api/jobs",
+            "jobs_history": "GET /api/jobs/history",
+            "worker_status": "GET /api/worker/status",
+            "supabase_test": "GET /api/supabase/test"
         }
     }
 

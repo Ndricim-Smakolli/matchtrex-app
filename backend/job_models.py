@@ -139,7 +139,7 @@ job_storage: Dict[str, Dict[str, Any]] = {}
 
 def create_job_entry(job_id: str, request: JobCreateRequest) -> Dict[str, Any]:
     """Create a new job entry in storage"""
-    return {
+    job_entry = {
         "job_id": job_id,
         "status": JobStatus.PENDING,
         "job_type": request.job_type,
@@ -153,6 +153,20 @@ def create_job_entry(job_id: str, request: JobCreateRequest) -> Dict[str, Any]:
         "websocket_connections": set()
     }
 
+    # Also persist to Supabase if available
+    try:
+        from supabase_service import supabase_service
+
+        if supabase_service.is_available():
+            supabase_service.save_job(job_entry)
+    except Exception as e:
+        # Don't fail if Supabase fails - just log
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"⚠️ Failed to persist job to Supabase: {e}")
+
+    return job_entry
+
 def update_job_status(job_id: str, status: JobStatus, **kwargs) -> bool:
     """Update job status and optional fields"""
     if job_id not in job_storage:
@@ -164,6 +178,25 @@ def update_job_status(job_id: str, status: JobStatus, **kwargs) -> bool:
     for key, value in kwargs.items():
         if key in ["progress", "result", "error_message", "started_at", "completed_at"]:
             job_storage[job_id][key] = value
+
+    # Also persist to Supabase if available
+    try:
+        from supabase_service import supabase_service
+
+        if supabase_service.is_available():
+            supabase_service.update_job_status(
+                job_id=job_id,
+                status=status.value if hasattr(status, 'value') else str(status),
+                progress=kwargs.get("progress").dict() if kwargs.get("progress") and hasattr(kwargs.get("progress"), 'dict') else kwargs.get("progress"),
+                result=kwargs.get("result").dict() if kwargs.get("result") and hasattr(kwargs.get("result"), 'dict') else kwargs.get("result"),
+                error_message=kwargs.get("error_message"),
+                completed_at=kwargs.get("completed_at")
+            )
+    except Exception as e:
+        # Don't fail if Supabase fails - just log
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"⚠️ Failed to persist job status to Supabase: {e}")
 
     return True
 
