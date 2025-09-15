@@ -13,24 +13,25 @@ Umbau von synchroner zu asynchroner Architektur für lange Pipeline-Prozesse mit
 > **Ziel**: Neue Async-Endpunkte hinzufügen, ohne bestehende Funktionalität zu brechen
 
 ### ✅ Step 1.1: Dependencies erweitern
-- [ ] `requirements.txt` mit Async-Libraries erweitern
-- [ ] Virtual Environment aktualisieren
-- [ ] Kompatibilität testen
-- **Test**: Backend startet weiterhin normal
+- [x] `requirements.txt` mit Async-Libraries erweitern (python-socketio, websockets, aiofiles)
+- [x] Virtual Environment aktualisieren
+- [x] Kompatibilität testen
+- **Test**: ✅ Backend startet weiterhin normal
 - **Rollback**: `git checkout requirements.txt`
 
 ### ✅ Step 1.2: Job Queue Models hinzufügen
-- [ ] Pydantic Models für Jobs erstellen (`JobCreate`, `JobStatus`, `JobResponse`)
-- [ ] In-Memory Job Storage (Dict) als MVP
-- [ ] Job ID Generation System
+- [x] Pydantic Models für Jobs erstellen (`JobCreateRequest`, `JobStatusResponse`, `JobProgress`, etc.)
+- [x] In-Memory Job Storage (Dict) als MVP
+- [x] Job ID Generation System
 - **Test**: Models importieren ohne Fehler
 - **Rollback**: Neue Files löschen
 
 ### ✅ Step 1.3: Neue API Endpunkte (parallel zu bestehenden)
-- [ ] `POST /api/jobs` → Job erstellen (sofortige Antwort)
-- [ ] `GET /api/jobs/{job_id}` → Job Status abfragen
-- [ ] Bestehende `/search` Endpunkte bleiben unverändert
-- **Test**: Neue Endpunkte erreichbar, alte funktionieren weiter
+- [x] `POST /api/jobs` → Job erstellen (sofortige Antwort) ✅
+- [x] `GET /api/jobs/{job_id}` → Job Status abfragen ✅
+- [x] `GET /api/jobs` → Alle Jobs auflisten (Debug/Admin) ✅
+- [x] Bestehende `/search` Endpunkte bleiben unverändert ✅
+- **Test**: ✅ Alle neuen Endpunkte funktionieren, alte API weiterhin verfügbar
 - **Rollback**: Neue Routes auskommentieren
 
 ---

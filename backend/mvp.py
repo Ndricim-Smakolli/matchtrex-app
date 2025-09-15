@@ -42,6 +42,13 @@ import uvicorn
 from google_sheets_service import GoogleSheetsService
 from config import get_google_sheets_id, GOOGLE_SHEETS_CREDENTIALS_PATH
 
+# Import job system
+from job_models import (
+    JobCreateRequest, JobResponse, JobStatusResponse,
+    JobStatus, generate_job_id, create_job_entry,
+    update_job_status, get_job, job_storage
+)
+
 # Constants - Load from environment variables
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "your_mistral_api_key")  
 TWOCAPTCHA_KEY = os.getenv("TWOCAPTCHA_KEY", "your_twocaptcha_key")
@@ -986,6 +993,80 @@ def run_pipeline_in_background():
     finally:
         pipeline_running = False
 
+# ============================================================================
+# NEW ASYNC JOB API ENDPOINTS (Parallel to existing endpoints)
+# ============================================================================
+
+@app.post("/api/jobs", response_model=JobResponse)
+async def create_job(request: JobCreateRequest):
+    """Create a new async job and return job ID immediately"""
+    try:
+        # Generate unique job ID
+        job_id = generate_job_id()
+
+        # Create job entry in storage
+        job_entry = create_job_entry(job_id, request)
+        job_storage[job_id] = job_entry
+
+        # Log job creation
+        logger.info(f"🆕 New job created: {job_id}")
+        logger.info(f"   Keywords: {request.search_keywords}")
+        logger.info(f"   Location: {request.location}")
+
+        return JobResponse(
+            job_id=job_id,
+            status=JobStatus.PENDING,
+            message="Job created successfully. Processing will start shortly.",
+            created_at=job_entry["created_at"]
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Failed to create job: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create job: {str(e)}")
+
+@app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(job_id: str):
+    """Get status and progress of a specific job"""
+    job = get_job(job_id)
+
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+
+    return JobStatusResponse(
+        job_id=job["job_id"],
+        status=job["status"],
+        progress=job.get("progress"),
+        result=job.get("result"),
+        error_message=job.get("error_message"),
+        created_at=job["created_at"],
+        started_at=job.get("started_at"),
+        completed_at=job.get("completed_at")
+    )
+
+@app.get("/api/jobs")
+async def list_jobs():
+    """List all jobs (for debugging/admin)"""
+    jobs = []
+    for job_id, job_data in job_storage.items():
+        jobs.append({
+            "job_id": job_id,
+            "status": job_data["status"],
+            "created_at": job_data["created_at"],
+            "parameters": {
+                "search_keywords": job_data["parameters"]["search_keywords"],
+                "location": job_data["parameters"]["location"]
+            }
+        })
+
+    return {
+        "total_jobs": len(jobs),
+        "jobs": jobs
+    }
+
+# ============================================================================
+# EXISTING API ENDPOINTS (Unchanged)
+# ============================================================================
+
 @app.get("/api")
 async def root():
     """Service status endpoint"""
@@ -996,10 +1077,15 @@ async def root():
         "status": "running",
         "pipeline_running": pipeline_running,
         "endpoints": {
+            # Legacy endpoints
             "search": "POST /search",
             "trigger": "POST /run-mvp",
             "status": "GET /status",
-            "health": "GET /health"
+            "health": "GET /health",
+            # New async endpoints
+            "jobs_create": "POST /api/jobs",
+            "jobs_status": "GET /api/jobs/{job_id}",
+            "jobs_list": "GET /api/jobs"
         }
     }
 

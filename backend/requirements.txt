@@ -10,3 +10,8 @@ openpyxl==3.1.5
 selenium==4.35.0
 2captcha-python==1.5.1
 beautifulsoup4==4.13.5
+
+# Async Job Queue Dependencies
+python-socketio==5.10.0
+websockets==12.0
+aiofiles==23.2.1
