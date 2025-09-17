@@ -9,6 +9,13 @@ MatchTrex Frontend is a React + TypeScript application for a recruiting search s
 ## Development Commands
 
 ```bash
+# Install dependencies
+npm install
+
+# Setup environment variables
+cp .env.example .env
+# Edit .env with your Supabase credentials
+
 # Start development server (default port 5173)
 npm run dev
 
@@ -21,6 +28,20 @@ npm run lint
 # Preview production build
 npm run preview
 ```
+
+## Environment Setup
+
+**Required Environment Variables** (create `.env` file):
+```
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**How to get Supabase credentials:**
+1. Go to [supabase.com](https://supabase.com) and create a project
+2. Go to Settings > API in your Supabase dashboard
+3. Copy the "Project URL" as `VITE_SUPABASE_URL`
+4. Copy the "anon public" key as `VITE_SUPABASE_ANON_KEY`
 
 ## Tech Stack
 
