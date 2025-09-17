@@ -99,6 +99,41 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.get("/debug/env")
+async def debug_environment():
+    """Debug endpoint to check environment variables and Supabase connection"""
+    import os
+    from supabase_client import get_supabase_client, test_supabase_connection
+
+    debug_info = {
+        "timestamp": datetime.now().isoformat(),
+        "environment": {
+            "SUPABASE_URL": "SET" if os.getenv("SUPABASE_URL") else "NOT SET",
+            "SUPABASE_KEY": "SET" if os.getenv("SUPABASE_KEY") else "NOT SET",
+            "MISTRAL_API_KEY": "SET" if os.getenv("MISTRAL_API_KEY") else "NOT SET",
+            "EMAIL_USER": "SET" if os.getenv("EMAIL_USER") else "NOT SET",
+        },
+        "supabase": {
+            "client_available": get_supabase_client() is not None,
+            "connection_test": test_supabase_connection()
+        }
+    }
+
+    # Test loading a specific search
+    try:
+        from supabase_client import load_search_from_supabase
+        test_search = load_search_from_supabase("eeb926d9-c50b-4071-97de-cbd30a13937f")
+        debug_info["test_search"] = {
+            "found": test_search is not None,
+            "data": test_search if test_search else "Not found"
+        }
+    except Exception as e:
+        debug_info["test_search"] = {
+            "error": str(e)
+        }
+
+    return debug_info
+
 @app.post("/api/test-email-integration")
 async def test_email_integration():
     """Test the complete email integration with mock candidate data"""
