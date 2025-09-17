@@ -315,31 +315,44 @@ def get_indeed_cookies():
 def setup_driver_with_cookies():
     """Setup Chrome driver with Indeed cookies and stealth headers"""
     chrome_options = Options()
-    
+
     # Headless mode
     chrome_options.add_argument("--headless=new")
-    
+
     # Stealth arguments
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    
+
+    # Additional compatibility flags for VPS environments
+    chrome_options.add_argument("--disable-software-rasterizer")
+    chrome_options.add_argument("--disable-background-timer-throttling")
+    chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+    chrome_options.add_argument("--disable-renderer-backgrounding")
+    chrome_options.add_argument("--disable-features=TranslateUI")
+    chrome_options.add_argument("--disable-ipc-flooding-protection")
+
     # Anti-detection headers - use same user agent as API calls
     chrome_options.add_argument(f"--user-agent={SELECTED_USER_AGENT}")
     chrome_options.add_argument("--window-size=1920,1080")
-    
-    # Performance optimizations  
+
+    # Performance optimizations
     chrome_options.add_argument("--disable-images")
     chrome_options.add_argument("--disable-plugins")
     chrome_options.add_argument("--disable-extensions")
     chrome_options.add_argument("--disable-logging")
     chrome_options.add_argument("--disable-gpu")
-    
+
     # Remove automation indicators
     chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
     chrome_options.add_experimental_option('useAutomationExtension', False)
-    
-    driver = webdriver.Chrome(options=chrome_options)
+
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+    except Exception as e:
+        print(f"❌ ChromeDriver initialization failed: {e}")
+        print("   This is likely due to missing Chrome/ChromeDriver on VPS")
+        raise Exception(f"ChromeDriver setup failed: {e}")
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
     # Inject Turnstile interceptor
@@ -1324,14 +1337,47 @@ def main_pipeline_for_api(search_data: dict) -> dict:
         unique_candidates = list(set(all_candidates))
         print(f"   Total unique candidates found: {len(unique_candidates)}")
 
-        # Step 3: Download CV HTML files
+        # Step 3: Download CV HTML files (with ChromeDriver fallback)
         print("\n3. Downloading CV HTML files...")
-        downloaded_files = download_cv_html_files(unique_candidates, target_candidates)
-        print(f"   Downloaded {len(downloaded_files)} CV files")
+        try:
+            downloaded_files = download_cv_html_files(unique_candidates, target_candidates)
+            print(f"   Downloaded {len(downloaded_files)} CV files")
 
-        # Step 4: Process CV files with MistralAI
-        print("\n4. Processing CV files with MistralAI...")
-        filtered_candidates = process_saved_cv_files(downloaded_files, system_prompt, user_prompt)
+            # Step 4: Process CV files with MistralAI
+            print("\n4. Processing CV files with MistralAI...")
+            filtered_candidates = process_saved_cv_files(downloaded_files, system_prompt, user_prompt)
+
+        except Exception as e:
+            error_msg = str(e)
+            print(f"❌ CV download/processing failed: {error_msg}")
+
+            if "ChromeDriver" in error_msg or "Status code was: 127" in error_msg:
+                print("⚠️ ChromeDriver not available on this system")
+                print("   Falling back to candidate list without CV analysis...")
+
+                # Fallback: Create basic candidate entries without CV analysis
+                filtered_candidates = []
+                for i, candidate_url in enumerate(unique_candidates[:target_candidates]):
+                    # Extract account key from URL for basic info
+                    account_key = candidate_url.split('/')[-1] if '/' in candidate_url else f"candidate_{i+1}"
+
+                    fallback_candidate = {
+                        'name': f'Kandidat {i+1}',
+                        'email': 'N/A (CV-Analyse nicht verfügbar)',
+                        'url': candidate_url,
+                        'ai_response': 'CV-Analyse nicht verfügbar: ChromeDriver fehlt auf diesem System. Bitte CV manuell prüfen.',
+                        'location': 'N/A',
+                        'title': 'N/A',
+                        'experience': [],
+                        'skills': [],
+                        'education': []
+                    }
+                    filtered_candidates.append(fallback_candidate)
+
+                print(f"   Created {len(filtered_candidates)} fallback candidate entries")
+            else:
+                # Re-raise if it's a different error
+                raise e
 
         # Clean up temp_CVs directory
         if os.path.exists("temp_CVs"):

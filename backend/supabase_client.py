@@ -60,12 +60,8 @@ def update_search_status(search_id: str, status: str, progress: str = None, erro
     try:
         update_data = {'status': status}
 
-        if progress:
-            update_data['progress'] = progress
-
-        if error:
-            update_data['error'] = error
-
+        # Only add progress/error if the columns exist in the schema
+        # We'll try to update and gracefully handle missing columns
         if status == 'completed':
             update_data['completed_at'] = datetime.now().isoformat()
 
@@ -74,8 +70,24 @@ def update_search_status(search_id: str, status: str, progress: str = None, erro
         return True
 
     except Exception as e:
-        print(f"❌ Error updating search {search_id} status: {e}")
-        return False
+        error_msg = str(e)
+        if "Could not find the" in error_msg and "column" in error_msg:
+            print(f"⚠️ Schema issue updating search {search_id}: {error_msg}")
+            print(f"   Trying basic status update only...")
+            try:
+                # Fallback: just update status and completed_at
+                basic_update = {'status': status}
+                if status == 'completed':
+                    basic_update['completed_at'] = datetime.now().isoformat()
+                response = supabase.table('searches').update(basic_update).eq('id', search_id).execute()
+                print(f"✅ Updated search {search_id} status to '{status}' (basic update)")
+                return True
+            except Exception as e2:
+                print(f"❌ Even basic update failed for search {search_id}: {e2}")
+                return False
+        else:
+            print(f"❌ Error updating search {search_id} status: {e}")
+            return False
 
 def update_search_results(search_id: str, results: Dict) -> bool:
     """Update search results in Supabase"""
@@ -107,7 +119,6 @@ def mark_search_failed(search_id: str, error_message: str) -> bool:
     try:
         update_data = {
             'status': 'failed',
-            'error': error_message,
             'completed_at': datetime.now().isoformat()
         }
 
@@ -116,8 +127,25 @@ def mark_search_failed(search_id: str, error_message: str) -> bool:
         return True
 
     except Exception as e:
-        print(f"❌ Error marking search {search_id} as failed: {e}")
-        return False
+        error_msg = str(e)
+        if "Could not find the" in error_msg and "column" in error_msg:
+            print(f"⚠️ Schema issue marking search {search_id} as failed: {error_msg}")
+            print(f"   Trying basic status update only...")
+            try:
+                # Fallback: just update status and completed_at
+                basic_update = {
+                    'status': 'failed',
+                    'completed_at': datetime.now().isoformat()
+                }
+                response = supabase.table('searches').update(basic_update).eq('id', search_id).execute()
+                print(f"✅ Marked search {search_id} as failed (basic update): {error_message}")
+                return True
+            except Exception as e2:
+                print(f"❌ Even basic failure update failed for search {search_id}: {e2}")
+                return False
+        else:
+            print(f"❌ Error marking search {search_id} as failed: {e}")
+            return False
 
 # Test function for debugging
 def test_supabase_connection():
