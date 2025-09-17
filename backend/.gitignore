@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Credentials
+google_credentials.json
+*.json
+
+# Logs
+*.log
+webhook_logs.txt
+server.log
+
+# Temporary files
+temp_CVs/
+filtered_contacts_*.txt
+response_*.json
+SearchRecords.xlsx
+
+# SSL certificates
+ssl/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
