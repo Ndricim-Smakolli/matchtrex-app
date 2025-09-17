@@ -99,6 +99,51 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.post("/api/test-email-integration")
+async def test_email_integration():
+    """Test the complete email integration with mock candidate data"""
+    try:
+        from mvp import send_email_with_results
+
+        # Mock candidates for testing
+        mock_candidates = [
+            {
+                'name': 'Test Kandidat 1',
+                'location': 'Berlin, Deutschland',
+                'url': 'https://resumes.indeed.com/resume/test1',
+                'ai_response': 'Demo: Hervorragender Kandidat mit starken technischen Fähigkeiten und passender Erfahrung.'
+            },
+            {
+                'name': 'Test Kandidat 2',
+                'location': 'Hamburg, Deutschland',
+                'url': 'https://resumes.indeed.com/resume/test2',
+                'ai_response': 'Demo: Qualifizierte Frontend-Spezialistin mit modernen JavaScript-Frameworks.'
+            }
+        ]
+
+        send_email_with_results(
+            mock_candidates,
+            "Test Keywords",
+            "Berlin",
+            25,
+            "ndricim@beyondleverage.com",
+            "API Email Integration Test"
+        )
+
+        return {
+            "status": "success",
+            "message": "Email integration test completed successfully",
+            "candidates_sent": len(mock_candidates),
+            "recipient": "ndricim@beyondleverage.com",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Email integration test failed: {str(e)}"
+        )
+
 @app.post("/api/test-email")
 async def send_test_email():
     """Send a test email to verify email functionality and backend-frontend communication"""

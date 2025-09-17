@@ -662,7 +662,7 @@ def format_cv_data_for_evaluation(cv_data):
     
     return formatted
 
-def send_email_with_results(filtered_candidates, search_keywords, location, radius, recipient_email):
+def send_email_with_results(filtered_candidates, search_keywords, location, radius, recipient_email, search_name=None):
     """Send email with filtered candidates using HTML template"""
     try:
         from datetime import datetime
@@ -670,24 +670,42 @@ def send_email_with_results(filtered_candidates, search_keywords, location, radi
         msg = MIMEMultipart()
         msg['From'] = EMAIL_USER
         msg['To'] = recipient_email
-        msg['Subject'] = f"🎯 Neue Kandidaten-Shortlist - {len(filtered_candidates)} Kandidaten gefunden"
+        # Dynamic subject based on search name or keywords
+        search_title = search_name if search_name else search_keywords
+        msg['Subject'] = f"🎯 MatchTrex: {len(filtered_candidates)} Kandidaten für '{search_title}' gefunden"
         
-        # Generate candidate table rows with feedback buttons
+        # Generate candidate table rows with enhanced information
         candidate_rows = ""
         for i, candidate in enumerate(filtered_candidates, 1):
             # Extract account key from URL for tracking
             account_key = candidate['url'].split('/')[-1] if '/' in candidate['url'] else f"candidate_{i}"
-            feedback_url = f"https://matchtrex-feedback.example.com/feedback?profile={account_key}&status=unsuitable&job_id=JOB_001"
-            
+            feedback_url = f"https://matchtrex-feedback.example.com/feedback?profile={account_key}&status=unsuitable"
+
+            # Get candidate details
+            candidate_name = candidate.get('name', 'N/A')
+            candidate_location = candidate.get('location', 'N/A')
+            candidate_analysis = candidate.get('ai_response', 'No analysis available')
+
+            # Truncate analysis to fit email nicely
+            if len(candidate_analysis) > 150:
+                candidate_analysis = candidate_analysis[:150] + "..."
+
             candidate_rows += f"""
         <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; text-align: center;">{i}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <a href="{candidate['url']}" style="color: #0066cc; text-decoration: none; font-weight: 500;">
-                        👤 {candidate['name']} - {candidate['location']}
+            <td style="padding: 12px; border: 1px solid #ddd; text-align: center; font-weight: bold; background: #f8f9fa;">{i}</td>
+            <td style="padding: 12px; border: 1px solid #ddd;">
+                <div style="margin-bottom: 8px;">
+                    <a href="{candidate['url']}" style="color: #0066cc; text-decoration: none; font-weight: 600; font-size: 16px;">
+                        👤 {candidate_name}
                     </a>
-                    <a href="{feedback_url}" style="background: #dc3545; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; font-size: 12px; margin-left: 10px;">
+                    <span style="color: #6c757d; margin-left: 10px; font-size: 14px;">📍 {candidate_location}</span>
+                </div>
+                <div style="background: #e8f5e8; padding: 8px; border-radius: 4px; margin: 8px 0; font-size: 13px; color: #155724;">
+                    <strong>✅ KI-Bewertung:</strong> {candidate_analysis}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                    <small style="color: #6c757d;">Klicke auf den Namen für das vollständige Profil</small>
+                    <a href="{feedback_url}" style="background: #dc3545; color: white; padding: 4px 8px; border-radius: 3px; text-decoration: none; font-size: 11px;">
                         ❌ Nicht passend
                     </a>
                 </div>
@@ -1353,6 +1371,18 @@ def main_pipeline_for_api(search_data: dict) -> dict:
             "location": location,
             "recipient_email": recipient_email  # For Phase 5 email
         }
+
+        # Step 6: Send Email Notification (if qualified candidates found and email provided)
+        if filtered_candidates and recipient_email:
+            print(f"\n6. Sending email notification...")
+            print(f"   Sending results to: {recipient_email}")
+            search_name = search_data.get('name', search_keywords)  # Use search name if available
+            send_email_with_results(filtered_candidates, search_keywords, location, max_radius, recipient_email, search_name)
+            print(f"   ✅ Email sent successfully!")
+        elif not recipient_email:
+            print(f"\n6. Skipping email - no recipient email provided")
+        else:
+            print(f"\n6. Skipping email - no qualified candidates found")
 
         print(f"✅ Pipeline completed successfully!")
         print(f"   Results: {len(api_candidates)} qualified candidates")
