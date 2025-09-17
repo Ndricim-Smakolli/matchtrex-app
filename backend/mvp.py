@@ -415,6 +415,13 @@ def solve_turnstile_challenge(driver, url):
 
 def extract_cv_data_with_mistral(html_content):
     """Extract CV data from HTML using MistralAI"""
+    print(f"🔍 Starting CV data extraction with MistralAI...")
+    print(f"   HTML content length: {len(html_content)} characters")
+
+    if not MISTRAL_API_KEY:
+        print(f"❌ MISTRAL_API_KEY not found!")
+        return None
+
     # Permanent prompt for CV data extraction
     extraction_prompt = """Extract CV data from the provided HTML content and return it in this exact JSON format:
 
@@ -820,37 +827,69 @@ def download_cv_html_files(unique_candidates, target_candidates):
             print(f"   Downloading CV {i}/{min(len(unique_candidates), target_candidates)}")
             
             try:
+                # Add timeout for page load
+                driver.set_page_load_timeout(30)
                 driver.get(profile_url)
                 time.sleep(3)
-                
-                # Solve Turnstile if needed
-                if not solve_turnstile_challenge(driver, profile_url):
-                    print(f"   Failed to solve Turnstile for {profile_url}")
-                    continue
-                
-                # Wait for the resume content to load
+
+                # Solve Turnstile if needed with timeout
                 try:
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CLASS_NAME, "rdp-resume-container"))
-                    )
-                except:
-                    # If rdp-resume-container not found, wait for body to load
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.TAG_NAME, "body"))
-                    )
-                
-                time.sleep(2)
+                    if not solve_turnstile_challenge(driver, profile_url):
+                        print(f"   Failed to solve Turnstile for {profile_url}")
+                        continue
+                except Exception as turnstile_error:
+                    print(f"   Turnstile timeout for {profile_url}: {turnstile_error}")
+                    continue
+
+                # Wait for the actual CV content to load, not just loading messages
+                content_loaded = False
+                max_attempts = 3
+                for attempt in range(max_attempts):
+                    try:
+                        # Wait for the resume container
+                        WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.CLASS_NAME, "rdp-resume-container"))
+                        )
+
+                        # Wait additional time for content to populate
+                        time.sleep(3)
+
+                        # Check if we have actual content (not just loading message)
+                        page_text = driver.execute_script("return document.body.innerText;")
+                        if len(page_text) > 100 and "Nur einen Moment" not in page_text and "Just a moment" not in page_text:
+                            content_loaded = True
+                            break
+                        else:
+                            print(f"   Attempt {attempt + 1}: Still loading, waiting longer...")
+                            time.sleep(5)
+
+                    except Exception as wait_error:
+                        print(f"   Attempt {attempt + 1}: Wait error: {wait_error}")
+                        time.sleep(3)
+
+                if not content_loaded:
+                    print(f"   Failed to load actual CV content after {max_attempts} attempts: {profile_url}")
+                    continue
+
+                time.sleep(1)
                 
                 # Get the complete HTML using browser's DOM
                 html_content = driver.execute_script("return document.documentElement.outerHTML;")
-                
+
                 # Alternative: If the above doesn't work, try getting the body content
                 if not html_content or len(html_content) < 1000:
                     html_content = driver.execute_script("return document.body.innerHTML;")
-                
+
                 # Final fallback to page_source if needed
                 if not html_content or len(html_content) < 1000:
                     html_content = driver.page_source
+
+                # Debug: Check content quality
+                page_text = driver.execute_script("return document.body.innerText;")
+                if len(page_text) < 50:
+                    print(f"   ⚠️ Short content detected ({len(page_text)} chars): {page_text[:50]}...")
+                else:
+                    print(f"   ✅ Good content length: {len(page_text)} characters")
                 
                 # Extract account key from URL for filename
                 account_key = profile_url.split('/')[-1]
@@ -870,6 +909,11 @@ def download_cv_html_files(unique_candidates, target_candidates):
                 
             except Exception as e:
                 print(f"   Error downloading {profile_url}: {e}")
+                # If driver gets stuck, try to recover
+                try:
+                    driver.execute_script("window.stop();")
+                except:
+                    pass
                 continue
     
     finally:
@@ -890,10 +934,17 @@ def process_saved_cv_files(downloaded_files, system_prompt, user_prompt):
                 html_content = f.read()
             
             # Extract CV data using MistralAI
+            print(f"   Extracting CV data for {file_info['account_key']}...")
             cv_data = extract_cv_data_with_mistral(html_content)
             if not cv_data:
-                print(f"   No CV data found for {file_info['account_key']}")
+                print(f"   ❌ No CV data found for {file_info['account_key']}")
                 continue
+
+            print(f"   ✅ CV data extracted: name={cv_data.get('name', 'N/A')}")
+            print(f"      Fields found: {list(cv_data.keys())}")
+            print(f"      name: {cv_data.get('name', 'Missing')}")
+            print(f"      email: {cv_data.get('email', 'Missing')}")
+            print(f"      location: {cv_data.get('location', 'Missing')}")
             
             # Evaluate candidate with MistralAI
             is_qualified, ai_response = evaluate_candidate_with_mistral(
@@ -1197,6 +1248,122 @@ def main_pipeline(form_params=None):
         print("   No qualified candidates found")
     
     print("\n=== Pipeline Complete ===")
+
+def main_pipeline_for_api(search_data: dict) -> dict:
+    """
+    API-Version der Pipeline - angepasst für Backend Integration
+    Nimmt Supabase search_data und gibt strukturierte Ergebnisse zurück
+    """
+    print("=== MatchTrex MVP Pipeline (API Mode) ===\n")
+
+    try:
+        # Step 1: Parameter Mapping - Supabase Format → Pipeline Format
+        form_params = {
+            'search_keywords': search_data.get('search_keywords', ''),
+            'location': search_data.get('location', ''),
+            'max_radius': search_data.get('max_radius', 25),
+            'target_candidates': search_data.get('target_candidates', 100),
+            'recipient_email': search_data.get('recipient_email', ''),
+            'system_prompt': search_data.get('system_prompt', ''),
+            'user_prompt': search_data.get('user_prompt', ''),
+            'resume_last_updated_days': search_data.get('resume_last_updated_days', 30)
+        }
+
+        print(f"1. Search Parameters:")
+        print(f"   Keywords: {form_params['search_keywords']}")
+        print(f"   Location: {form_params['location']}")
+        print(f"   Target: {form_params['target_candidates']} candidates")
+        print(f"   Radius: {form_params['max_radius']} km")
+
+        # Extract parameters
+        search_keywords = form_params['search_keywords']
+        location = form_params['location']
+        max_radius = int(form_params['max_radius'])
+        target_candidates = int(form_params['target_candidates'])
+        recipient_email = form_params['recipient_email']
+        system_prompt = form_params['system_prompt']
+        user_prompt = form_params['user_prompt']
+        resume_last_updated_days = int(form_params['resume_last_updated_days'])
+
+        # Step 2: Search for candidates
+        print("\n2. Searching for candidates on Indeed...")
+        resume_filter = calculate_unix_timestamp_ms(resume_last_updated_days)
+        all_candidates = []
+
+        # Progressive radius search
+        for radius in range(5, max_radius + 1, 5):
+            print(f"   Searching radius {radius}km...")
+            response = make_indeed_request(radius, search_keywords, resume_filter, location)
+            if response:
+                candidates = extract_candidate_data(response)
+                all_candidates.extend(candidates)
+                print(f"   Found {len(candidates)} candidates at {radius}km")
+
+                if len(all_candidates) >= target_candidates:
+                    break
+
+        # Remove duplicates
+        unique_candidates = list(set(all_candidates))
+        print(f"   Total unique candidates found: {len(unique_candidates)}")
+
+        # Step 3: Download CV HTML files
+        print("\n3. Downloading CV HTML files...")
+        downloaded_files = download_cv_html_files(unique_candidates, target_candidates)
+        print(f"   Downloaded {len(downloaded_files)} CV files")
+
+        # Step 4: Process CV files with MistralAI
+        print("\n4. Processing CV files with MistralAI...")
+        filtered_candidates = process_saved_cv_files(downloaded_files, system_prompt, user_prompt)
+
+        # Clean up temp_CVs directory
+        if os.path.exists("temp_CVs"):
+            shutil.rmtree("temp_CVs")
+            print("   Cleaned up temp_CVs directory")
+
+        # Step 5: Prepare API Results (no email/file saving in API mode)
+        print(f"\n5. Preparing results...")
+        print(f"   Total found: {len(unique_candidates)}")
+        print(f"   After AI filtering: {len(filtered_candidates)}")
+
+        # Convert filtered_candidates to API format
+        api_candidates = []
+        for candidate in filtered_candidates:
+            # Extract structured data from candidate
+            api_candidate = {
+                "name": candidate.get('name', 'N/A'),
+                "email": candidate.get('email', 'N/A'),  # CV parsing might not extract email
+                "profile_url": candidate.get('url', 'N/A'),
+                "analysis": candidate.get('ai_response', 'No analysis available'),  # Fixed field name
+                "location": candidate.get('location', 'N/A'),
+                "title": candidate.get('title', 'N/A'),
+                "experience": candidate.get('experience', []),
+                "skills": candidate.get('skills', []),
+                "education": candidate.get('education', [])
+            }
+            api_candidates.append(api_candidate)
+
+        # Return structured results for API
+        results = {
+            "candidates": api_candidates,
+            "total_found": len(unique_candidates),
+            "filtered_count": len(filtered_candidates),
+            "search_completed": True,
+            "timestamp": datetime.now().isoformat(),
+            "search_keywords": search_keywords,
+            "location": location,
+            "recipient_email": recipient_email  # For Phase 5 email
+        }
+
+        print(f"✅ Pipeline completed successfully!")
+        print(f"   Results: {len(api_candidates)} qualified candidates")
+
+        return results
+
+    except Exception as e:
+        print(f"❌ Pipeline failed: {e}")
+        raise Exception(f"Pipeline execution failed: {str(e)}")
+
+    print("\n=== API Pipeline Complete ===")
     return [candidate['url'] for candidate in filtered_candidates] if filtered_candidates else []
 
 

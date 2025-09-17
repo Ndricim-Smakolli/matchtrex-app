@@ -292,48 +292,30 @@ async def process_search_from_supabase_placeholder(job_id: str, search_id: str):
         # 3. Update status in Supabase
         update_search_status(search_id, 'processing', 'Backend processing started...')
 
-        # 4. Simulate processing (Phase 3 will implement real pipeline)
-        await asyncio.sleep(3)
-        update_search_status(search_id, 'processing', 'Searching for candidates...')
+        # 4. Run REAL Pipeline!
+        update_search_status(search_id, 'processing', 'Running Indeed search and AI processing...')
 
-        await asyncio.sleep(3)
-        update_search_status(search_id, 'processing', 'Processing CVs with AI...')
+        # Import and run the real MVP pipeline
+        from mvp import main_pipeline_for_api
 
-        await asyncio.sleep(2)
+        print(f"🚀 Starting REAL pipeline for search: {search_data.get('name', search_id)}")
+        results = await asyncio.get_event_loop().run_in_executor(
+            None, main_pipeline_for_api, search_data
+        )
 
-        # 5. Mock results (Phase 3 will implement real pipeline)
-        mock_results = {
-            "candidates": [
-                {
-                    "name": "Max Mustermann",
-                    "email": "max@example.com",
-                    "analysis": "Experienced developer with React and Python skills",
-                    "profile_url": "https://example.com/profile/1"
-                },
-                {
-                    "name": "Anna Schmidt",
-                    "email": "anna@example.com",
-                    "analysis": "Senior data scientist with ML expertise",
-                    "profile_url": "https://example.com/profile/2"
-                }
-            ],
-            "total_found": 15,
-            "filtered_count": 2,
-            "search_completed": True,
-            "timestamp": datetime.now().isoformat()
-        }
+        print(f"✅ Pipeline completed! Found {results.get('filtered_count', 0)} qualified candidates")
 
         # 6. Update results in Supabase
-        update_search_results(search_id, mock_results)
+        update_search_results(search_id, results)
 
         # 7. Update job status (in memory)
         jobs[job_id].status = "completed"
         jobs[job_id].progress = "Search completed successfully"
-        jobs[job_id].results = mock_results
-        jobs[job_id].candidates_found = len(mock_results["candidates"])
+        jobs[job_id].results = results
+        jobs[job_id].candidates_found = len(results["candidates"])
         jobs[job_id].completed_at = datetime.now()
 
-        print(f"✅ Search {search_id} completed successfully with {len(mock_results['candidates'])} candidates")
+        print(f"✅ Search {search_id} completed successfully with {len(results['candidates'])} candidates")
 
         # 8. TODO Phase 5: Send email notification
 
