@@ -407,8 +407,8 @@ def filter_candidates_with_mistral(search_keywords, location, radius, params=Non
     """
     Main function to filter candidates using MistralAI.
     """
-    # Hardcoded MistralAI API key
-    api_key = '83pVv0mVbOBUwSRmoPBaWg6UUkNZunTP'
+    # Load MistralAI API key from environment variable
+    api_key = os.getenv("MISTRAL_API_KEY", "83pVv0mVbOBUwSRmoPBaWg6UUkNZunTP")
     
     if not api_key:
         api_key = input("Please enter your MistralAI API key: ").strip()
@@ -646,9 +646,9 @@ def send_email_with_attachment(filename, candidate_count, search_keywords, locat
     """
     Send email with the filtered candidates file as attachment using HTML template.
     """
-    # Email configuration - hardcoded credentials, configurable recipient
-    sender_email = 'aauxilliary4@gmail.com'
-    sender_password = 'kxoc ajnf pked zhwp'
+    # Email configuration - load from environment variables
+    sender_email = os.getenv("EMAIL_USER", "aauxilliary4@gmail.com")
+    sender_password = os.getenv("EMAIL_PASS", "kxoc ajnf pked zhwp")
     recipient_email = params.get('recipient_email', 'parth@beyondleverage.com') if params else 'parth@beyondleverage.com'
     
     # Read the filtered candidates URLs from the file
@@ -813,7 +813,9 @@ def send_email_with_attachment(filename, candidate_count, search_keywords, locat
     
     # Send email
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        server = smtplib.SMTP(smtp_server, smtp_port)
         server.starttls()
         server.login(sender_email, sender_password)
         text = msg.as_string()

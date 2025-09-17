@@ -41,9 +41,15 @@ import uvicorn
 from google_sheets_service import GoogleSheetsService
 from config import get_google_sheets_id, GOOGLE_SHEETS_CREDENTIALS_PATH
 
-# Constants
-MISTRAL_API_KEY = "83pVv0mVbOBUwSRmoPBaWg6UUkNZunTP"  # Hardcoded as in main.py
-TWOCAPTCHA_KEY = "22e969001c9ae2824614794f69230e68"  # From batch_cv_downloader.py
+# Constants - Load from environment variables
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "83pVv0mVbOBUwSRmoPBaWg6UUkNZunTP")  # Fallback to hardcoded
+TWOCAPTCHA_KEY = os.getenv("TWOCAPTCHA_KEY", "22e969001c9ae2824614794f69230e68")  # Fallback to hardcoded
+
+# Email configuration from environment variables
+EMAIL_USER = os.getenv("EMAIL_USER", "aauxilliary4@gmail.com")
+EMAIL_PASS = os.getenv("EMAIL_PASS", "kxoc ajnf pked zhwp")
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 
 # Header rotation pools for anti-detection
 USER_AGENTS = [
@@ -655,7 +661,7 @@ def send_email_with_results(filtered_candidates, search_keywords, location, radi
         from datetime import datetime
         
         msg = MIMEMultipart()
-        msg['From'] = "aauxilliary4@gmail.com"
+        msg['From'] = EMAIL_USER
         msg['To'] = recipient_email
         msg['Subject'] = f"🎯 Neue Kandidaten-Shortlist - {len(filtered_candidates)} Kandidaten gefunden"
         
@@ -787,11 +793,11 @@ def send_email_with_results(filtered_candidates, search_keywords, location, radi
         msg.attach(MIMEText(html_body, 'html'))
         
         # Send email
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
-        server.login("aauxilliary4@gmail.com", "kxoc ajnf pked zhwp")
+        server.login(EMAIL_USER, EMAIL_PASS)
         text = msg.as_string()
-        server.sendmail("aauxilliary4@gmail.com", recipient_email, text)
+        server.sendmail(EMAIL_USER, recipient_email, text)
         server.quit()
         
         print(f"Email sent successfully to {recipient_email}")
