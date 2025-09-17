@@ -266,29 +266,87 @@ async def start_job_from_supabase(request: dict, background_tasks: BackgroundTas
 # --- Background Job Processing ---
 
 async def process_search_from_supabase_placeholder(job_id: str, search_id: str):
-    """Placeholder function for processing search from Supabase (Phase 2 will implement full logic)"""
+    """Process search job from Supabase with real integration"""
     try:
         print(f"📝 Processing job {job_id} for search {search_id}")
 
-        # Update job status
+        # Import Supabase functions
+        from supabase_client import (
+            load_search_from_supabase,
+            update_search_status,
+            update_search_results,
+            mark_search_failed
+        )
+
+        # 1. Load search from Supabase
+        search_data = load_search_from_supabase(search_id)
+        if not search_data:
+            raise Exception(f"Search {search_id} not found in Supabase")
+
+        print(f"✅ Loaded search data: {search_data.get('name', 'Unnamed')} - {search_data.get('search_keywords')}")
+
+        # 2. Update job status (in memory)
         jobs[job_id].status = "running"
-        jobs[job_id].progress = f"Mock processing search {search_id}..."
+        jobs[job_id].progress = f"Processing search: {search_data.get('name', search_id)}"
 
-        # Simulate some processing time
-        await asyncio.sleep(5)
+        # 3. Update status in Supabase
+        update_search_status(search_id, 'processing', 'Backend processing started...')
 
-        # Mock completion
+        # 4. Simulate processing (Phase 3 will implement real pipeline)
+        await asyncio.sleep(3)
+        update_search_status(search_id, 'processing', 'Searching for candidates...')
+
+        await asyncio.sleep(3)
+        update_search_status(search_id, 'processing', 'Processing CVs with AI...')
+
+        await asyncio.sleep(2)
+
+        # 5. Mock results (Phase 3 will implement real pipeline)
+        mock_results = {
+            "candidates": [
+                {
+                    "name": "Max Mustermann",
+                    "email": "max@example.com",
+                    "analysis": "Experienced developer with React and Python skills",
+                    "profile_url": "https://example.com/profile/1"
+                },
+                {
+                    "name": "Anna Schmidt",
+                    "email": "anna@example.com",
+                    "analysis": "Senior data scientist with ML expertise",
+                    "profile_url": "https://example.com/profile/2"
+                }
+            ],
+            "total_found": 15,
+            "filtered_count": 2,
+            "search_completed": True,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # 6. Update results in Supabase
+        update_search_results(search_id, mock_results)
+
+        # 7. Update job status (in memory)
         jobs[job_id].status = "completed"
-        jobs[job_id].progress = "Mock processing completed"
+        jobs[job_id].progress = "Search completed successfully"
+        jobs[job_id].results = mock_results
+        jobs[job_id].candidates_found = len(mock_results["candidates"])
         jobs[job_id].completed_at = datetime.now()
 
-        print(f"✅ Mock processing completed for job {job_id}")
+        print(f"✅ Search {search_id} completed successfully with {len(mock_results['candidates'])} candidates")
+
+        # 8. TODO Phase 5: Send email notification
 
     except Exception as e:
+        print(f"❌ Job {job_id} failed: {e}")
+
+        # Update job status (in memory)
         jobs[job_id].status = "failed"
         jobs[job_id].error = str(e)
         jobs[job_id].progress = f"Error: {str(e)}"
-        print(f"❌ Job {job_id} failed: {e}")
+
+        # Update status in Supabase
+        mark_search_failed(search_id, str(e))
 
 async def process_search_job(job_id: str, request: SearchRequest):
     """Process the CV search job in background"""
