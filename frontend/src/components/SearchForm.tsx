@@ -23,7 +23,7 @@ export default function SearchForm({ onBack, onSearchCreated, initialData }: Sea
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -55,11 +55,48 @@ export default function SearchForm({ onBack, onSearchCreated, initialData }: Sea
         }
       };
 
-      const { error } = await supabase
+      // Insert into Supabase and get the ID back
+      const { data: insertedData, error } = await supabase
         .from('searches')
-        .insert([searchData]);
+        .insert([searchData])
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      console.log('✅ Search created in Supabase with ID:', insertedData.id);
+
+      // Start backend processing
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL ||
+          (window.location.hostname === 'app.72.60.131.65.sslip.io'
+            ? 'http://api.72.60.131.65.sslip.io'
+            : 'http://localhost:3001');
+
+        console.log('🚀 Starting backend processing...');
+
+        const response = await fetch(`${backendUrl}/api/jobs/start-from-supabase`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            search_id: insertedData.id
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Backend API failed: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Backend job started:', result);
+
+      } catch (backendError: any) {
+        console.error('⚠️ Backend API call failed, but search was saved:', backendError);
+        // Don't fail the whole process if backend fails
+        // The search is already in Supabase
+      }
 
       onSearchCreated();
     } catch (error: any) {
@@ -164,7 +201,6 @@ export default function SearchForm({ onBack, onSearchCreated, initialData }: Sea
                 name="max_radius"
                 value={formData.max_radius}
                 onChange={handleInputChange}
-                placeholder="50"
                 placeholder="25"
                 min="1"
                 className="w-full px-4 py-3 border border-slate-200 rounded-lg 

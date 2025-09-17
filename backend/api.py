@@ -236,7 +236,59 @@ async def list_jobs():
         "total": len(jobs)
     }
 
+@app.post("/api/jobs/start-from-supabase")
+async def start_job_from_supabase(request: dict, background_tasks: BackgroundTasks):
+    """Start processing a search job from Supabase ID"""
+    search_id = request.get('search_id')
+    if not search_id:
+        raise HTTPException(status_code=400, detail="search_id required")
+
+    # Generate job ID for tracking
+    job_id = str(uuid.uuid4())
+
+    print(f"🎯 Starting backend job {job_id} for Supabase search {search_id}")
+
+    # For now, we'll create a placeholder job entry
+    job_status = JobStatus(
+        job_id=job_id,
+        status="pending",
+        progress=f"Starting processing for search {search_id}...",
+        created_at=datetime.now()
+    )
+
+    jobs[job_id] = job_status
+
+    # Start background processing (Phase 2 will implement the actual processing)
+    background_tasks.add_task(process_search_from_supabase_placeholder, job_id, search_id)
+
+    return {"job_id": job_id, "status": "started", "message": f"Backend processing started for search {search_id}"}
+
 # --- Background Job Processing ---
+
+async def process_search_from_supabase_placeholder(job_id: str, search_id: str):
+    """Placeholder function for processing search from Supabase (Phase 2 will implement full logic)"""
+    try:
+        print(f"📝 Processing job {job_id} for search {search_id}")
+
+        # Update job status
+        jobs[job_id].status = "running"
+        jobs[job_id].progress = f"Mock processing search {search_id}..."
+
+        # Simulate some processing time
+        await asyncio.sleep(5)
+
+        # Mock completion
+        jobs[job_id].status = "completed"
+        jobs[job_id].progress = "Mock processing completed"
+        jobs[job_id].completed_at = datetime.now()
+
+        print(f"✅ Mock processing completed for job {job_id}")
+
+    except Exception as e:
+        jobs[job_id].status = "failed"
+        jobs[job_id].error = str(e)
+        jobs[job_id].progress = f"Error: {str(e)}"
+        print(f"❌ Job {job_id} failed: {e}")
 
 async def process_search_job(job_id: str, request: SearchRequest):
     """Process the CV search job in background"""

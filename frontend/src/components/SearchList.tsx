@@ -110,7 +110,11 @@ export default function SearchList({ onViewSearch, onNewSearch }: SearchListProp
     setTestEmailResult(null);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      // Use environment variable or detect if running on same server
+      const backendUrl = import.meta.env.VITE_BACKEND_URL ||
+                        (window.location.hostname === 'app.72.60.131.65.sslip.io'
+                          ? 'http://api.72.60.131.65.sslip.io'
+                          : 'http://localhost:8000');
 
       const response = await fetch(`${backendUrl}/api/test-email`, {
         method: 'POST',
