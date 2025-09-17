@@ -11,23 +11,10 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Simple hash function to match the stored master password hash
+  // Simple hash function - use consistent algorithm for all environments
   const hashPassword = async (password: string): Promise<string> => {
-    // Check if Web Crypto API is available (requires HTTPS or localhost)
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      try {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(password);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      } catch (error) {
-        console.warn('Web Crypto API failed, using fallback hash');
-      }
-    }
-
-    // Fallback: Simple hash for non-HTTPS environments
-    // Note: This is less secure but works in all environments
+    // Use simple hash consistently across all environments
+    // This ensures the same password works everywhere
     let hash = 0;
     for (let i = 0; i < password.length; i++) {
       const char = password.charCodeAt(i);
