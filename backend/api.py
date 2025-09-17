@@ -312,19 +312,24 @@ def run_pipeline(search_params: Dict) -> Dict:
 
 if __name__ == "__main__":
     import argparse
+    import os
 
     parser = argparse.ArgumentParser(description="MatchTrex API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    parser.add_argument("--port", type=int, default=None, help="Port to bind to")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
     args = parser.parse_args()
 
-    print(f"🚀 Starting MatchTrex API on http://{args.host}:{args.port}")
+    # Use environment variable PORT if not specified via command line
+    port = args.port or int(os.getenv("PORT", "8000"))
+    host = args.host
+
+    print(f"🚀 Starting MatchTrex API on http://{host}:{port}")
 
     uvicorn.run(
         "api:app",
-        host=args.host,
-        port=args.port,
+        host=host,
+        port=port,
         reload=args.reload
     )
