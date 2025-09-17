@@ -86,8 +86,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <img 
-            src="../../public/matchtrex_logo.png" 
+          <img
+            src="/matchtrex_logo.png"
             alt="MatchTrex"
             className="mx-auto mt-8 mb-20 h-16 w-auto"
             style={{ transform: 'scale(1.4)' }}
