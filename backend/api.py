@@ -99,6 +99,99 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+@app.post("/api/test-email")
+async def send_test_email():
+    """Send a test email to verify email functionality and backend-frontend communication"""
+
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        # Get email configuration from environment variables (set in mvp.py)
+        from mvp import EMAIL_USER, EMAIL_PASS, SMTP_SERVER, SMTP_PORT
+
+        # Create test email
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_USER
+        msg['To'] = "ndricim@beyondleverage.com"
+        msg['Subject'] = "🧪 MatchTrex Backend Test - VPS Communication Check"
+
+        # Test email body
+        html_body = """
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <h2 style="color: #2563eb; text-align: center;">🎉 Backend Test Successful!</h2>
+
+                <p>Hallo Ndricim,</p>
+
+                <p>Diese E-Mail bestätigt, dass die Kommunikation zwischen deinem Frontend und Backend erfolgreich funktioniert!</p>
+
+                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                    <h3 style="margin-top: 0; color: #28a745;">✅ Test Details:</h3>
+                    <ul>
+                        <li><strong>Frontend:</strong> Erfolgreich deployed und erreichbar</li>
+                        <li><strong>Backend:</strong> Läuft auf VPS Server (Port 8000)</li>
+                        <li><strong>API Communication:</strong> ✅ Funktioniert</li>
+                        <li><strong>Email Service:</strong> ✅ Funktioniert</li>
+                        <li><strong>Environment Variables:</strong> ✅ Korrekt geladen</li>
+                    </ul>
+                </div>
+
+                <div style="background-color: #e3f2fd; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                    <h4 style="margin-top: 0; color: #1976d2;">🔧 System Information:</h4>
+                    <p><strong>Timestamp:</strong> {timestamp}</p>
+                    <p><strong>Server:</strong> VPS Backend</p>
+                    <p><strong>Email Config:</strong> {email_user}</p>
+                    <p><strong>SMTP Server:</strong> {smtp_server}:{smtp_port}</p>
+                </div>
+
+                <p style="margin-top: 30px;">
+                    Du kannst jetzt mit dem vollständigen Deployment fortfahren! 🚀
+                </p>
+
+                <p style="color: #666; font-size: 14px; border-top: 1px solid #e0e0e0; padding-top: 15px; margin-top: 30px;">
+                    Diese E-Mail wurde automatisch von der MatchTrex Backend API generiert.<br>
+                    Test ausgeführt über Frontend → VPS Backend → Email Service
+                </p>
+            </div>
+        </body>
+        </html>
+        """.format(
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            email_user=EMAIL_USER,
+            smtp_server=SMTP_SERVER,
+            smtp_port=SMTP_PORT
+        )
+
+        msg.attach(MIMEText(html_body, 'html'))
+
+        # Send email
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        text = msg.as_string()
+        server.sendmail(EMAIL_USER, "ndricim@beyondleverage.com", text)
+        server.quit()
+
+        return {
+            "status": "success",
+            "message": "Test email sent successfully to ndricim@beyondleverage.com",
+            "timestamp": datetime.now().isoformat(),
+            "email_config": {
+                "from": EMAIL_USER,
+                "to": "ndricim@beyondleverage.com",
+                "smtp_server": f"{SMTP_SERVER}:{SMTP_PORT}"
+            }
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send test email: {str(e)}"
+        )
+
 @app.post("/api/jobs", response_model=SearchResponse)
 async def create_search_job(request: SearchRequest, background_tasks: BackgroundTasks):
     """Create a new CV search job"""

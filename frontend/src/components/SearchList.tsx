@@ -30,6 +30,8 @@ export default function SearchList({ onViewSearch, onNewSearch }: SearchListProp
   const [appliedEmailFilter, setAppliedEmailFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [testEmailLoading, setTestEmailLoading] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSearches();
@@ -103,6 +105,40 @@ export default function SearchList({ onViewSearch, onNewSearch }: SearchListProp
     setAppliedEmailFilter('');
   };
 
+  const handleTestEmail = async () => {
+    setTestEmailLoading(true);
+    setTestEmailResult(null);
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+
+      const response = await fetch(`${backendUrl}/api/test-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      setTestEmailResult('✅ Test E-Mail erfolgreich gesendet! Prüfe dein E-Mail-Postfach.');
+
+    } catch (error: any) {
+      console.error('Test email error:', error);
+      setTestEmailResult(`❌ Fehler beim Senden der Test E-Mail: ${error.message}`);
+    } finally {
+      setTestEmailLoading(false);
+
+      // Clear result message after 5 seconds
+      setTimeout(() => {
+        setTestEmailResult(null);
+      }, 5000);
+    }
+  };
+
   const handleEmailInputKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleEmailSearch();
@@ -131,15 +167,38 @@ export default function SearchList({ onViewSearch, onNewSearch }: SearchListProp
         <div>
           <h1 className="text-3xl font-light text-slate-800">Suchverlauf</h1>
         </div>
-        <button
-          onClick={onNewSearch}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg 
-                   hover:bg-blue-600 transition-colors duration-200"
-        >
-          <Plus size={20} />
-          <span>Neue Suche</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleTestEmail}
+            disabled={testEmailLoading}
+            className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg
+                     hover:bg-green-600 transition-colors duration-200 disabled:bg-green-300"
+          >
+            <Mail size={20} />
+            <span>{testEmailLoading ? 'Sende...' : 'Backend Test'}</span>
+          </button>
+
+          <button
+            onClick={onNewSearch}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg
+                     hover:bg-blue-600 transition-colors duration-200"
+          >
+            <Plus size={20} />
+            <span>Neue Suche</span>
+          </button>
+        </div>
       </div>
+
+      {/* Test Email Result */}
+      {testEmailResult && (
+        <div className={`p-4 rounded-lg lg:max-w-5xl lg:mx-auto ${
+          testEmailResult.includes('✅')
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
+        }`}>
+          {testEmailResult}
+        </div>
+      )}
 
       {/* Email Filter */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 lg:max-w-5xl lg:mx-auto">
