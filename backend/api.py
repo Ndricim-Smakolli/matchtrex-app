@@ -323,10 +323,18 @@ async def process_search_from_supabase_placeholder(job_id: str, search_id: str):
             mark_search_failed
         )
 
-        # 1. Load search from Supabase
-        search_data = load_search_from_supabase(search_id)
+        # 1. Load search from Supabase (with retry for race condition)
+        search_data = None
+        max_retries = 3
+        for attempt in range(max_retries):
+            search_data = load_search_from_supabase(search_id)
+            if search_data:
+                break
+            print(f"   Attempt {attempt + 1}: Search not found, retrying in 2 seconds...")
+            await asyncio.sleep(2)
+
         if not search_data:
-            raise Exception(f"Search {search_id} not found in Supabase")
+            raise Exception(f"Search {search_id} not found in Supabase after {max_retries} attempts")
 
         print(f"✅ Loaded search data: {search_data.get('name', 'Unnamed')} - {search_data.get('search_keywords')}")
 
