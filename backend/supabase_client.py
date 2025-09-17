@@ -12,9 +12,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Environment variables
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# Environment variables - try both backend and frontend variable names
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("VITE_SUPABASE_ANON_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     print("⚠️ Warning: SUPABASE_URL and SUPABASE_KEY environment variables not set")

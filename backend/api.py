@@ -108,10 +108,14 @@ async def debug_environment():
     debug_info = {
         "timestamp": datetime.now().isoformat(),
         "environment": {
-            "SUPABASE_URL": "SET" if os.getenv("SUPABASE_URL") else "NOT SET",
-            "SUPABASE_KEY": "SET" if os.getenv("SUPABASE_KEY") else "NOT SET",
+            "SUPABASE_URL": "SET" if (os.getenv("SUPABASE_URL") or os.getenv("VITE_SUPABASE_URL")) else "NOT SET",
+            "SUPABASE_KEY": "SET" if (os.getenv("SUPABASE_KEY") or os.getenv("VITE_SUPABASE_ANON_KEY")) else "NOT SET",
             "MISTRAL_API_KEY": "SET" if os.getenv("MISTRAL_API_KEY") else "NOT SET",
             "EMAIL_USER": "SET" if os.getenv("EMAIL_USER") else "NOT SET",
+            "env_sources": {
+                "SUPABASE_URL_source": "SUPABASE_URL" if os.getenv("SUPABASE_URL") else ("VITE_SUPABASE_URL" if os.getenv("VITE_SUPABASE_URL") else "NONE"),
+                "SUPABASE_KEY_source": "SUPABASE_KEY" if os.getenv("SUPABASE_KEY") else ("VITE_SUPABASE_ANON_KEY" if os.getenv("VITE_SUPABASE_ANON_KEY") else "NONE")
+            }
         },
         "supabase": {
             "client_available": get_supabase_client() is not None,
