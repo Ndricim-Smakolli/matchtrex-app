@@ -348,10 +348,23 @@ def setup_driver_with_cookies():
     chrome_options.add_experimental_option('useAutomationExtension', False)
 
     try:
-        driver = webdriver.Chrome(options=chrome_options)
+        # Try to use system-wide ChromeDriver first
+        from selenium.webdriver.chrome.service import Service
+        import shutil
+
+        # Check for ChromeDriver in common locations
+        chromedriver_path = shutil.which('chromedriver')
+        if chromedriver_path:
+            service = Service(chromedriver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            # Fall back to automatic driver management
+            driver = webdriver.Chrome(options=chrome_options)
     except Exception as e:
         print(f"❌ ChromeDriver initialization failed: {e}")
-        print("   This is likely due to missing Chrome/ChromeDriver on VPS")
+        print("   Installing Chrome/ChromeDriver on VPS...")
+        print("   Run: bash setup_chrome.sh")
+        print("   Or manually: sudo apt-get update && sudo apt-get install -y google-chrome-stable chromium-chromedriver")
         raise Exception(f"ChromeDriver setup failed: {e}")
     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     
