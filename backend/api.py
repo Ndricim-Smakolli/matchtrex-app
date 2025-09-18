@@ -9,6 +9,8 @@ import sys
 import asyncio
 import json
 import uuid
+import subprocess
+import shutil
 from datetime import datetime
 from typing import Dict, List, Optional
 from contextlib import asynccontextmanager
@@ -20,6 +22,52 @@ import uvicorn
 
 # Import the existing pipeline functions
 from mvp import *  # Import all functions from existing mvp.py
+
+def ensure_chrome_installed():
+    """Ensure Chrome and ChromeDriver are installed"""
+    print("Checking Chrome installation...")
+
+    # Check if Chrome is installed
+    if not shutil.which('google-chrome'):
+        print("Chrome not found, installing...")
+        try:
+            # Install Chrome
+            subprocess.run(['apt-get', 'update', '-qq'], check=True)
+            subprocess.run(['apt-get', 'install', '-y', '-qq', 'wget', 'gnupg2', 'unzip'], check=True)
+            subprocess.run(['wget', '-q', '-O', '-', 'https://dl-ssl.google.com/linux/linux_signing_key.pub'],
+                          stdout=subprocess.PIPE, check=True)
+            subprocess.run(['apt-key', 'add', '-'],
+                          input=subprocess.run(['wget', '-q', '-O', '-', 'https://dl-ssl.google.com/linux/linux_signing_key.pub'],
+                                              capture_output=True, check=True).stdout, check=True)
+            with open('/etc/apt/sources.list.d/google-chrome.list', 'w') as f:
+                f.write("deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main\n")
+            subprocess.run(['apt-get', 'update', '-qq'], check=True)
+            subprocess.run(['apt-get', 'install', '-y', '-qq', 'google-chrome-stable'], check=True)
+            print(f"Chrome installed: {subprocess.run(['google-chrome', '--version'], capture_output=True, text=True).stdout.strip()}")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to install Chrome: {e}")
+
+    # Check if ChromeDriver is installed
+    if not os.path.exists('/usr/local/bin/chromedriver'):
+        print("ChromeDriver not found, installing...")
+        try:
+            # Get Chrome version
+            chrome_version = subprocess.run(['google-chrome', '--version'], capture_output=True, text=True, check=True).stdout
+            version = chrome_version.split()[2].split('.')[0:3]  # Get major.minor.patch
+            version_str = '.'.join(version)
+
+            # Download ChromeDriver
+            url = f"https://storage.googleapis.com/chrome-for-testing-public/{version_str}/linux64/chromedriver-linux64.zip"
+            subprocess.run(['wget', '-q', url, '-O', '/tmp/chromedriver.zip'], check=True)
+            subprocess.run(['unzip', '-q', '/tmp/chromedriver.zip', '-d', '/tmp'], check=True)
+            subprocess.run(['mv', '/tmp/chromedriver-linux64/chromedriver', '/usr/local/bin/'], check=True)
+            subprocess.run(['chmod', '+x', '/usr/local/bin/chromedriver'], check=True)
+            subprocess.run(['rm', '-rf', '/tmp/chromedriver*'], check=True)
+            print(f"ChromeDriver installed: {subprocess.run(['/usr/local/bin/chromedriver', '--version'], capture_output=True, text=True).stdout.strip()}")
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to install ChromeDriver: {e}")
+
+    print("Chrome setup complete!")
 
 # --- Request/Response Models ---
 
@@ -497,6 +545,9 @@ def run_pipeline(search_params: Dict) -> Dict:
 if __name__ == "__main__":
     import argparse
     import os
+
+    # Ensure Chrome is installed before starting the API
+    ensure_chrome_installed()
 
     parser = argparse.ArgumentParser(description="MatchTrex API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
