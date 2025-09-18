@@ -422,34 +422,87 @@ def setup_driver_with_cookies():
 def solve_turnstile_challenge(driver, url):
     """Solve Turnstile challenge if present"""
     solver = TwoCaptcha(TWOCAPTCHA_KEY)
-    
-    if "Just a moment..." in driver.title or "cf-turnstile-response" in driver.page_source:
+
+    # More comprehensive Cloudflare/Turnstile detection
+    page_source = driver.page_source.lower()
+    title = driver.title.lower()
+
+    # Check for various Cloudflare indicators
+    cloudflare_indicators = [
+        "just a moment" in title,
+        "checking your browser" in page_source,
+        "cloudflare" in page_source,
+        "cf-turnstile" in page_source,
+        "turnstile" in page_source,
+        "challenge-platform" in page_source,
+        "ray id" in page_source,
+        driver.current_url.startswith("https://challenges.cloudflare.com")
+    ]
+
+    if any(cloudflare_indicators):
+        print(f"   🔍 Cloudflare challenge detected, attempting 2captcha solve...")
         try:
-            turnstile_params = driver.execute_script("return window.turnstileParams;")
-            if turnstile_params and turnstile_params.get('sitekey'):
-                payload = {'sitekey': turnstile_params['sitekey'], 'url': url}
-                if turnstile_params.get('cData'):
-                    payload['data'] = turnstile_params['cData']
-                if turnstile_params.get('action'):
-                    payload['action'] = turnstile_params['action']
-                if turnstile_params.get('chlPageData'):
-                    payload['pagedata'] = turnstile_params['chlPageData']
-                
-                result = solver.turnstile(**payload)
-                
-                driver.execute_script(f"""
-                    if (window.turnstileCallback) {{
-                        window.turnstileCallback('{result['code']}');
-                    }} else {{
+            # First try to find turnstile widget directly
+            turnstile_element = None
+            try:
+                turnstile_element = driver.find_element(By.CSS_SELECTOR, "[data-sitekey]")
+            except:
+                try:
+                    turnstile_element = driver.find_element(By.CSS_SELECTOR, ".cf-turnstile")
+                except:
+                    pass
+
+            if turnstile_element:
+                sitekey = turnstile_element.get_attribute("data-sitekey")
+                if sitekey:
+                    print(f"   🔑 Found sitekey: {sitekey[:20]}...")
+                    payload = {'sitekey': sitekey, 'url': url}
+
+                    # Try to solve with 2captcha
+                    result = solver.turnstile(**payload)
+                    print(f"   ✅ 2captcha solution received")
+
+                    # Inject solution
+                    driver.execute_script(f"""
                         var input = document.querySelector('[name="cf-turnstile-response"]');
-                        if (input) input.value = '{result['code']}';
-                    }}
-                """)
-                time.sleep(5)
-                return True
+                        if (input) {{
+                            input.value = '{result['code']}';
+                            console.log('Turnstile solution injected');
+                        }}
+
+                        // Try callback method too
+                        if (window.turnstileCallback) {{
+                            window.turnstileCallback('{result['code']}');
+                        }}
+
+                        // Try form submission
+                        var form = document.querySelector('form');
+                        if (form) {{
+                            form.submit();
+                        }}
+                    """)
+
+                    time.sleep(8)  # Wait longer for processing
+
+                    # Check if challenge was solved by looking for redirect or content change
+                    new_url = driver.current_url
+                    if new_url != url and not new_url.startswith("https://challenges.cloudflare.com"):
+                        print(f"   ✅ Challenge solved, redirected to: {new_url}")
+                        return True
+
+                    print(f"   ⚠️ Still on challenge page, trying manual wait...")
+                    time.sleep(10)
+                    return True
+
+            else:
+                print(f"   ⚠️ Cloudflare detected but no turnstile widget found")
+
         except Exception as e:
-            print(f"Error solving Turnstile: {e}")
-            return False
+            print(f"   ❌ Error solving Turnstile: {e}")
+            # Continue anyway, maybe it will work
+            time.sleep(5)
+            return True
+
     return True
 
 def extract_cv_data_with_mistral(html_content):
