@@ -353,12 +353,25 @@ def setup_driver_with_cookies():
         import shutil
 
         # Check for ChromeDriver in common locations
-        chromedriver_path = shutil.which('chromedriver')
+        chromedriver_paths = [
+            '/usr/local/bin/chromedriver',
+            '/usr/bin/chromedriver',
+            shutil.which('chromedriver')
+        ]
+
+        chromedriver_path = None
+        for path in chromedriver_paths:
+            if path and os.path.exists(path):
+                chromedriver_path = path
+                print(f"✅ Found ChromeDriver at: {chromedriver_path}")
+                break
+
         if chromedriver_path:
             service = Service(chromedriver_path)
             driver = webdriver.Chrome(service=service, options=chrome_options)
         else:
             # Fall back to automatic driver management
+            print("⚠️ No system ChromeDriver found, trying automatic download...")
             driver = webdriver.Chrome(options=chrome_options)
     except Exception as e:
         print(f"❌ ChromeDriver initialization failed: {e}")
