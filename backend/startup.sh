@@ -21,14 +21,30 @@ fi
 echo "Checking ChromeDriver installation..."
 if [ ! -f /usr/local/bin/chromedriver ]; then
     echo "ChromeDriver not found, installing..."
-    CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
-    echo "   Chrome version detected: $CHROME_VERSION"
-    wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" -O /tmp/chromedriver.zip
-    unzip -q /tmp/chromedriver.zip -d /tmp
-    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
-    chmod +x /usr/local/bin/chromedriver
-    rm -rf /tmp/chromedriver*
-    echo "✅ ChromeDriver installed: $(/usr/local/bin/chromedriver --version)"
+    CHROME_FULL_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+\.\d+')
+    echo "   Chrome version detected: $CHROME_FULL_VERSION"
+
+    # Try to download ChromeDriver with error handling
+    DOWNLOAD_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_FULL_VERSION}/linux64/chromedriver-linux64.zip"
+    echo "   Downloading from: $DOWNLOAD_URL"
+
+    if wget -q "$DOWNLOAD_URL" -O /tmp/chromedriver.zip; then
+        if unzip -q /tmp/chromedriver.zip -d /tmp 2>/dev/null; then
+            if [ -f /tmp/chromedriver-linux64/chromedriver ]; then
+                mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/
+                chmod +x /usr/local/bin/chromedriver
+                rm -rf /tmp/chromedriver*
+                echo "✅ ChromeDriver installed: $(/usr/local/bin/chromedriver --version)"
+            else
+                echo "❌ ChromeDriver binary not found in download"
+            fi
+        else
+            echo "❌ Failed to extract ChromeDriver zip"
+            rm -f /tmp/chromedriver.zip
+        fi
+    else
+        echo "❌ Failed to download ChromeDriver"
+    fi
 else
     echo "✅ ChromeDriver already installed: $(/usr/local/bin/chromedriver --version)"
 fi
@@ -39,4 +55,14 @@ echo "Chrome setup complete! Starting API on port 3001..."
 echo ""
 
 # Start the API
-source venv/bin/activate && python api.py --port 3001
+# Try different virtual environment paths
+if [ -f venv/bin/activate ]; then
+    echo "Using local venv..."
+    source venv/bin/activate && python api.py --port 3001
+elif [ -f /app/venv/bin/activate ]; then
+    echo "Using /app/venv..."
+    source /app/venv/bin/activate && python api.py --port 3001
+else
+    echo "No venv found, using system Python..."
+    python3 api.py --port 3001
+fi
