@@ -127,7 +127,7 @@ export default function SearchList({ onViewSearch, onNewSearch }: SearchListProp
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-light text-slate-800">Suchverlauf</h1>
