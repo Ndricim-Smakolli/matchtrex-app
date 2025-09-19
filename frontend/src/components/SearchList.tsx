@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, MapPin, Users, Filter, X } from 'lucide-react';
+import { Plus, Search, Calendar, MapPin, Users, Filter, X, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Search {
